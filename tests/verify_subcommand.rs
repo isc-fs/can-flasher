@@ -35,9 +35,9 @@ async fn spawn_session_with_expected_verify(
     });
 
     let config = SessionConfig {
-        target_node:        STUB_NODE,
+        target_node: STUB_NODE,
         keepalive_interval: Duration::from_millis(5_000),
-        command_timeout:    Duration::from_millis(200),
+        command_timeout: Duration::from_millis(200),
         ..SessionConfig::default()
     };
     let session = Session::attach(Box::new(host), config);
@@ -119,8 +119,8 @@ fn image_size_crc_and_version_compose_correctly() {
     let crc = crc32(&data);
     let img = Image {
         base_addr: firmware::BL_APP_BASE,
-        data:      data.clone(),
-        fw_info:   None,
+        data: data.clone(),
+        fw_info: None,
     };
     assert_eq!(img.size(), 32);
     assert_eq!(img.crc32(), crc);
