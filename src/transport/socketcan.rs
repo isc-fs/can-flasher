@@ -185,7 +185,7 @@ fn our_frame_to_socketcan(frame: &CanFrame) -> Result<socketcan::CanFrame> {
             frame.id
         )));
     }
-    let id = StandardId::new(frame.id as u16).ok_or_else(|| {
+    let id = StandardId::new(frame.id).ok_or_else(|| {
         TransportError::Other(format!(
             "SocketCAN: could not build standard ID from 0x{:X}",
             frame.id
@@ -209,7 +209,7 @@ fn extract_data_frame(frame: &socketcan::CanFrame) -> Option<&socketcan::CanData
 
 fn socketcan_data_to_our(frame: &socketcan::CanDataFrame) -> Result<CanFrame> {
     let id = match frame.id() {
-        Id::Standard(std) => u16::from(std.as_raw()),
+        Id::Standard(std) => std.as_raw(),
         Id::Extended(_) => {
             // The bootloader protocol is 11-bit only. Surface an
             // extended frame as an Other error so the caller's retry
@@ -323,9 +323,10 @@ mod tests {
     fn extract_data_frame_recognises_data_variant() {
         let id = StandardId::new(0x123).unwrap();
         let data = socketcan::CanDataFrame::new(id, &[0xAA, 0xBB]).unwrap();
-        let wrapped = socketcan::CanFrame::Data(data.clone());
+        // CanDataFrame is Copy — just move it in and out.
+        let wrapped = socketcan::CanFrame::Data(data);
         let extracted = extract_data_frame(&wrapped).expect("should extract data frame");
-        assert_eq!(extracted.data(), data.data());
+        assert_eq!(extracted.data(), &[0xAA, 0xBB]);
     }
 
     #[test]
