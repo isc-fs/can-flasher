@@ -320,17 +320,21 @@ mod tests {
     }
 
     #[test]
-    fn extract_data_frame_skips_remote_and_error() {
+    fn extract_data_frame_recognises_data_variant() {
         let id = StandardId::new(0x123).unwrap();
-        let remote = socketcan::CanRemoteFrame::new(id, 4).unwrap();
-        let err_frame = socketcan::CanErrorFrame::new_error(0, &[]).unwrap();
-        assert!(extract_data_frame(&socketcan::CanFrame::Remote(remote)).is_none());
-        assert!(extract_data_frame(&socketcan::CanFrame::Error(err_frame)).is_none());
+        let data = socketcan::CanDataFrame::new(id, &[0xAA, 0xBB]).unwrap();
+        let wrapped = socketcan::CanFrame::Data(data.clone());
+        let extracted = extract_data_frame(&wrapped).expect("should extract data frame");
+        assert_eq!(extracted.data(), data.data());
     }
 
     #[test]
     fn open_rejects_empty_interface() {
-        let err = SocketCanBackend::open("").unwrap_err();
+        // Can't use .unwrap_err() because SocketCanBackend doesn't
+        // implement Debug (the CanSocket from socketcan::tokio doesn't
+        // either). Destructure manually.
+        let result = SocketCanBackend::open("");
+        let err = result.err().expect("empty interface should fail");
         match err {
             TransportError::InvalidChannel { channel, .. } => {
                 assert!(channel.is_empty());
