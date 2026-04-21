@@ -61,7 +61,7 @@ use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use serialport::{SerialPort, SerialPortType};
@@ -97,7 +97,34 @@ const READ_TIMEOUT: Duration = Duration::from_millis(50);
 /// multi-frame ISO-TP bursts. 1 ms pacing puts us at ~1 kHz TX rate,
 /// comfortably below the 4 kHz bus ceiling and below any reasonable
 /// CANable firmware's drain rate.
+///
+/// **Enforcement** is a busy-wait inside the blocking pool — see
+/// [`spin_wait`] and its call site in `send()`. We used to call
+/// `tokio::time::sleep(PACING_INTERVAL).await`, but on macOS the
+/// tokio timer's coarse scheduling floor turns a requested 1 ms into
+/// ~2.3 ms median / ~3.3 ms p95. Across a full-sector 26 KB flash
+/// (~20k paced frames) that ballooned the wall time from ~5 s of
+/// actual bus activity to ~52 s of mostly-sleep. The busy-wait is
+/// accurate to the platform `Instant::now()` granularity (~1 µs)
+/// and burns at most one blocking-pool worker thread for the 1 ms
+/// duration, which is a non-issue at 1 kHz TX rate.
 const PACING_INTERVAL: Duration = Duration::from_millis(1);
+
+/// Busy-wait until `Instant::now()` reaches `start + dur`. Used by
+/// [`SlcanBackend::send`] to enforce [`PACING_INTERVAL`] between
+/// frames without going through a platform sleep primitive — see the
+/// `PACING_INTERVAL` doc-comment for why that matters. Runs inside
+/// a `spawn_blocking` task so it doesn't block the async runtime.
+/// `std::hint::spin_loop` tells the CPU we're in a tight wait loop
+/// so it can drop to a low-power pause state rather than hammering
+/// the pipeline.
+#[inline]
+fn spin_wait(dur: Duration) {
+    let deadline = Instant::now() + dur;
+    while Instant::now() < deadline {
+        std::hint::spin_loop();
+    }
+}
 
 /// How long the open sequence waits to see an adapter's command
 /// response (`\r` for success, `\x07` for failure). Two kinds of
@@ -374,7 +401,25 @@ impl CanBackend for SlcanBackend {
         let port = Arc::clone(&self.writer_port);
 
         // Serial I/O is blocking; hand it to the blocking pool so we
-        // don't stall the async runtime.
+        // don't stall the async runtime. The inter-frame pacing
+        // (`spin_wait`) happens on the same blocking worker, *after*
+        // the write and *before* the mutex drops — which means:
+        //   1. Pacing cost doesn't leak into tokio's timer wheel,
+        //      avoiding its ~2.3 ms median floor for a 1 ms request
+        //      on macOS (see `PACING_INTERVAL` doc-comment).
+        //   2. Successive writers serialise through the mutex, so
+        //      the second writer cannot start until the first has
+        //      done write + pace — preserving fix/10's invariant
+        //      that we never burst faster than PACING_INTERVAL.
+        //
+        // On the wire: at 500 kbps each 8-byte classic frame takes
+        // ~230 µs, but at 2 Mbps USB serial we push a `t...\r` in
+        // ~100 µs, i.e. faster than the CANable can retransmit.
+        // Without pacing, bursts of ≥ ~8 frames (e.g. the CFs of a
+        // 64-byte `CMD_FLASH_WRITE`) overflow the CANable's internal
+        // TX buffer and get silently dropped, which manifests on the
+        // bootloader side as an ISO-TP reassembly timeout
+        // (`NACK(TRANSPORT_TIMEOUT)`).
         //
         // No explicit `port.flush()` after `write_all`: on macOS
         // USB-serial, `flush()` calls `tcdrain()` which waits for
@@ -388,28 +433,14 @@ impl CanBackend for SlcanBackend {
                 .lock()
                 .map_err(|_| TransportError::Other("serial port mutex poisoned".into()))?;
             port.write_all(&encoded)?;
+            // Pace *before* releasing the mutex so the next writer
+            // in line cannot begin until the full PACING_INTERVAL
+            // has elapsed since our write_all returned.
+            spin_wait(PACING_INTERVAL);
             Ok(())
         })
         .await
         .map_err(|e| TransportError::Other(format!("spawn_blocking join failed: {e}")))??;
-
-        // Inter-frame pacing. On a 500 kbps CAN bus each 8-byte
-        // classic frame takes ~230 µs wire time; at 2 Mbps serial we
-        // can push a `t...\r` command in ~100 µs, i.e. faster than
-        // the CANable can transmit it onto the bus. Without pacing,
-        // bursts of ≥ ~8 frames (e.g. the CFs of a 64-byte
-        // `CMD_FLASH_WRITE`) overflow the CANable's internal TX
-        // buffer and get silently dropped, which manifests on the
-        // bootloader side as an ISO-TP reassembly timeout
-        // (`NACK(TRANSPORT_TIMEOUT)`).
-        //
-        // A 1 ms sleep between frames caps host TX rate at ~1 kHz —
-        // well below bus wire rate (~4 kHz for 8-byte classic CAN at
-        // 500 kbps) but slow enough that CANables with conservative
-        // buffering never drop. One-off commands pay 1 ms we'd
-        // barely notice; bursts (the CFs of a multi-frame command)
-        // scale linearly, which is the price for reliability.
-        tokio::time::sleep(PACING_INTERVAL).await;
         Ok(())
     }
 
@@ -1138,6 +1169,42 @@ mod tests {
         let mut src = std::io::Cursor::new(b"leftover\x07".to_vec());
         let err = wait_for_ack(&mut src, "S99\r", TEST_ACK_TIMEOUT).expect_err("BEL → error");
         assert!(format!("{err}").contains("rejected"));
+    }
+
+    // ---- Precise pacing (fix/19) ----
+
+    #[test]
+    fn spin_wait_blocks_for_at_least_requested_duration() {
+        // The whole point of the switch away from tokio::time::sleep
+        // is that the wait time should not fall short of the request.
+        // We allow generous overshoot (anything from a scheduler
+        // preemption to a VM freeze could add ms), but undershoot is
+        // what would break fix/10's pacing invariant.
+        let requested = Duration::from_millis(2);
+        let start = Instant::now();
+        spin_wait(requested);
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed >= requested,
+            "spin_wait returned too early: requested {requested:?}, elapsed {elapsed:?}"
+        );
+    }
+
+    #[test]
+    fn spin_wait_does_not_massively_overshoot_short_waits() {
+        // Sanity-check: on a non-contended test host the busy-wait
+        // should come in well under 10x the request. If we see a
+        // wild overshoot here it's a signal we're accidentally
+        // going through a scheduler primitive. Tolerant threshold
+        // so CI noise doesn't flake it.
+        let requested = Duration::from_millis(1);
+        let start = Instant::now();
+        spin_wait(requested);
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(50),
+            "spin_wait overshot badly: requested {requested:?}, elapsed {elapsed:?}"
+        );
     }
 
     // ---- Adapter-error surfacing (fix/17) ----
