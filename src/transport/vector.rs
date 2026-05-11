@@ -234,8 +234,7 @@ type FnXlDeactivateChannel =
     unsafe extern "C" fn(portHandle: XLportHandle, accessMask: XLaccess) -> XLstatus;
 type FnXlClosePort = unsafe extern "C" fn(portHandle: XLportHandle) -> XLstatus;
 type FnXlCanSetChannelBitrate =
-    unsafe extern "C" fn(portHandle: XLportHandle, accessMask: XLaccess, bitrate: u32)
-        -> XLstatus;
+    unsafe extern "C" fn(portHandle: XLportHandle, accessMask: XLaccess, bitrate: u32) -> XLstatus;
 type FnXlReceive = unsafe extern "C" fn(
     portHandle: XLportHandle,
     pEventCount: *mut u32,
@@ -333,11 +332,7 @@ impl VectorApi {
         if ptr.is_null() {
             return format!("XL error 0x{status:04X}");
         }
-        unsafe {
-            std::ffi::CStr::from_ptr(ptr)
-                .to_string_lossy()
-                .into_owned()
-        }
+        unsafe { std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned() }
     }
 }
 
@@ -509,12 +504,14 @@ pub struct VectorAdapterInfo {
 
 /// Parse `"0"`, `"1"`, etc. into an XL channel index.
 fn parse_channel(s: &str) -> Result<u32> {
-    s.trim().parse::<u32>().map_err(|_| TransportError::InvalidChannel {
-        channel: s.to_string(),
-        reason: "Vector channel must be a non-negative integer matching the index \
+    s.trim()
+        .parse::<u32>()
+        .map_err(|_| TransportError::InvalidChannel {
+            channel: s.to_string(),
+            reason: "Vector channel must be a non-negative integer matching the index \
                  shown by `can-flasher adapters` (e.g. 0, 1, 2)"
-            .into(),
-    })
+                .into(),
+        })
 }
 
 // ---- Backend ----
@@ -544,10 +541,7 @@ impl VectorBackend {
         if rc != XL_SUCCESS {
             return Err(TransportError::AdapterMissing {
                 name: "vector",
-                reason: format!(
-                    "xlOpenDriver failed: {} (0x{rc:04X})",
-                    api.error_text(rc)
-                ),
+                reason: format!("xlOpenDriver failed: {} (0x{rc:04X})", api.error_text(rc)),
             });
         }
 
@@ -616,8 +610,7 @@ impl VectorBackend {
         // Set the bitrate only if we obtained init (write) access.
         if permission_mask & access_mask != 0 {
             // SAFETY: port_handle is valid; function preconditions met.
-            let rc =
-                unsafe { (api.set_channel_bitrate)(port_handle, access_mask, nominal_bps) };
+            let rc = unsafe { (api.set_channel_bitrate)(port_handle, access_mask, nominal_bps) };
             if rc != XL_SUCCESS {
                 let _ = unsafe { (api.close_port)(port_handle) };
                 let _ = unsafe { (api.close_driver)() };
@@ -724,8 +717,7 @@ impl CanBackend for VectorBackend {
         tokio::task::spawn_blocking(move || -> Result<()> {
             let mut count: u32 = 1;
             // SAFETY: port_handle is valid; event is a properly-formed XLevent.
-            let rc =
-                unsafe { (api.transmit)(port_handle, access_mask, &mut count, &mut event) };
+            let rc = unsafe { (api.transmit)(port_handle, access_mask, &mut count, &mut event) };
             if rc != XL_SUCCESS {
                 return Err(TransportError::Other(format!(
                     "xlCanTransmit failed: {} (0x{rc:04X})",
@@ -770,8 +762,7 @@ impl Drop for VectorBackend {
         // an error rather than blocking the join.
         self.shutdown.store(true, Ordering::SeqCst);
         // SAFETY: port_handle and access_mask are valid for our lifetime.
-        let _ =
-            unsafe { (self.api.deactivate_channel)(self.port_handle, self.access_mask) };
+        let _ = unsafe { (self.api.deactivate_channel)(self.port_handle, self.access_mask) };
         let _ = unsafe { (self.api.close_port)(self.port_handle) };
         let _ = unsafe { (self.api.close_driver)() };
         if let Ok(mut guard) = self.reader_handle.lock() {

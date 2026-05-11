@@ -255,11 +255,7 @@ fn write_vector_section<W: Write>(out: &mut W, entries: &[VectorEntry]) -> std::
         )?;
         return Ok(());
     }
-    let channel_width = entries
-        .iter()
-        .map(|e| e.channel.len())
-        .max()
-        .unwrap_or(0);
+    let channel_width = entries.iter().map(|e| e.channel.len()).max().unwrap_or(0);
     let name_width = entries.iter().map(|e| e.name.len()).max().unwrap_or(0);
     for e in entries {
         writeln!(
