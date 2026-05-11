@@ -821,14 +821,10 @@ fn reader_loop(
 
                 // Skip TX echoes (TX_COMPLETED / TX_REQUEST) and
                 // error / remote frames — only data frames matter.
-                if msg.flags
-                    & (XL_CAN_MSG_FLAG_TX_COMPLETED | XL_CAN_MSG_FLAG_TX_REQUEST)
-                    != 0
-                {
+                if msg.flags & (XL_CAN_MSG_FLAG_TX_COMPLETED | XL_CAN_MSG_FLAG_TX_REQUEST) != 0 {
                     continue;
                 }
-                if msg.flags & (XL_CAN_MSG_FLAG_ERROR_FRAME | XL_CAN_MSG_FLAG_REMOTE_FRAME) != 0
-                {
+                if msg.flags & (XL_CAN_MSG_FLAG_ERROR_FRAME | XL_CAN_MSG_FLAG_REMOTE_FRAME) != 0 {
                     continue;
                 }
                 // The bootloader only uses 11-bit standard IDs.
@@ -970,8 +966,7 @@ mod tests {
             // name
             let name_bytes = name.as_bytes();
             let nlen = name_bytes.len().min(XL_MAX_LENGTH);
-            buf[base + OFF_NAME..base + OFF_NAME + nlen]
-                .copy_from_slice(&name_bytes[..nlen]);
+            buf[base + OFF_NAME..base + OFF_NAME + nlen].copy_from_slice(&name_bytes[..nlen]);
             // channel_mask
             buf[base + OFF_CHAN_MASK..base + OFF_CHAN_MASK + 8]
                 .copy_from_slice(&ch_mask.to_le_bytes());
@@ -1009,10 +1004,7 @@ mod tests {
     #[test]
     fn parse_can_channels_respects_channel_count() {
         // 64 slots in the buffer but count says 1.
-        let buf = make_config_buf(
-            1,
-            &[(0, 0x01, XL_BUS_ACTIVE_CAP_CAN, "VN1610", "CAN")],
-        );
+        let buf = make_config_buf(1, &[(0, 0x01, XL_BUS_ACTIVE_CAP_CAN, "VN1610", "CAN")]);
         let channels = parse_can_channels(&buf);
         assert_eq!(channels.len(), 1);
     }
