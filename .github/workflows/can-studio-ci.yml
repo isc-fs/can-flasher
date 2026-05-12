@@ -78,6 +78,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate platform icon variants
+        # `tauri-build` requires `icons/icon.ico` on Windows for the
+        # generated resource file (and `icon.icns` for macOS bundles).
+        # We commit only `icon.png` and let CI regenerate the rest
+        # via the bundled `@tauri-apps/cli`. Local devs run the same
+        # command once after first `npm install`.
+        run: npx --yes @tauri-apps/cli@^2 icon src-tauri/icons/icon.png
+
       - name: Type-check Svelte sources
         run: npm run check
 

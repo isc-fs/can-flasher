@@ -99,10 +99,21 @@ Outputs:
 
 ### Icon generation
 
-The committed `src-tauri/icons/icon.png` is the source. For release builds the
-team's tauri CLI should run `npm run tauri icon src-tauri/icons/icon.png` once
-to generate `.ico` / `.icns` / multi-resolution PNGs. CI does this automatically;
-local dev usually doesn't need it (dev builds use the bare `icon.png`).
+The committed `src-tauri/icons/icon.png` is the source. **The Tauri build
+script requires `icons/icon.ico` on Windows even for `cargo check`** — so
+run the icon generator once after your first `npm install`:
+
+```bash
+npx tauri icon src-tauri/icons/icon.png
+```
+
+That produces `icon.ico` / `icon.icns` / `32x32.png` / `128x128.png` /
+`128x128@2x.png` and a handful of store-metadata PNGs alongside the source.
+All of those are `.gitignore`d so dev machines and CI regenerate them on
+demand.
+
+CI runs this step automatically before `cargo check` so the workflow is
+self-contained.
 
 ## Repository layout
 
