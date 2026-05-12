@@ -34,7 +34,10 @@ fn can_flasher_version() -> &'static str {
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![studio_version, can_flasher_version])
+        .invoke_handler(tauri::generate_handler![
+            studio_version,
+            can_flasher_version
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the ISC CAN Studio Tauri app");
 }

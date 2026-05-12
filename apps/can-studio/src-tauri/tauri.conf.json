@@ -26,8 +26,7 @@
       }
     ],
     "security": {
-      "csp": null,
-      "comment": "CSP intentionally left null for the scaffold; will be tightened when Tier 0 lands and we have a concrete asset surface."
+      "csp": null
     }
   },
   "bundle": {
