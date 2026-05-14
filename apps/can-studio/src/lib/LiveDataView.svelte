@@ -83,7 +83,6 @@
         const fg = cssVar('--text', '#ececec');
         const muted = cssVar('--text-muted', '#999');
         const border = cssVar('--border', '#383838');
-        const accent = cssVar('--accent', '#f2b233');
 
         return {
             type: 'line',
