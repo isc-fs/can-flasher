@@ -102,7 +102,7 @@ let loadPromise: Promise<void> | null = null;
 export function loadSettings(): Promise<void> {
     if (loadPromise !== null) return loadPromise;
     loadPromise = (async () => {
-        store = await load(STORE_FILE, { autoSave: false });
+        store = await load(STORE_FILE);
         const stored = await store.get<Partial<Settings>>(STORE_KEY);
         if (stored !== undefined && stored !== null) {
             mergeInto(settings, stored);
