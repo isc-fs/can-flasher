@@ -167,6 +167,13 @@ The roadmap table tracks which tag closes each phase.
 
 ### Cutting a release
 
+**No release branches.** Releases are tagged directly on `main`;
+we don't cut `release/v*` branches at any point. The flow is:
+land everything on `dev`, fast-forward `dev → main`, tag on `main`.
+This keeps the history linear and the branch list tidy — there's
+nothing for a hotfix branch to "miss" because there's no separate
+release lane to backport into.
+
 When bumping `main` to a new version:
 
 1. **Bump `Cargo.toml`** on `dev` first (`version = "1.1.2"` →
