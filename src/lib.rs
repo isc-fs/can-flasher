@@ -16,6 +16,7 @@ pub mod flash;
 pub mod logging;
 pub mod pit_diag;
 pub mod protocol;
+pub mod provision_seed;
 pub mod session;
 #[cfg(feature = "swd")]
 pub mod swd;

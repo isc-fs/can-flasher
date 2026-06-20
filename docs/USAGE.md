@@ -262,6 +262,27 @@ After a successful provision (with reset), follow up with
 `can-flasher discover` — the board should reappear at the new
 node-id.
 
+### Provisioning over SWD during the burn (experimental)
+
+`swd-flash --seed-node-id <role|0xN>` writes the node-id over the
+**debug probe** while burning the bootloader — no CAN adapter, no
+boot round-trip. Instead of asking the running bootloader to write
+its NVM over CAN (`--provision`), it stages a small *provisioning
+seed* at a reserved flash address that the bootloader adopts on its
+first boot.
+
+```sh
+# Commission a bare board in one SWD step: burn the BL + seed AMS.
+can-flasher swd-flash CAN_BL.elf --seed-node-id ams
+```
+
+**Requires bootloader seed support**
+([stm32-can-bootloader#183](https://github.com/isc-fs/stm32-can-bootloader/issues/183));
+on a bootloader without it the seed is inert and you should use
+`--provision` (over CAN) instead. It also erases sector 7, so it's a
+fresh-board commissioning path — re-provision an existing board over
+CAN. Mutually exclusive with `--provision`.
+
 ---
 
 ## `pit-diag` — AMS observer mode
