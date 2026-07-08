@@ -2224,9 +2224,9 @@
     }
     .stat {
         display: inline-flex;
-        gap: var(--space-1);
+        gap: var(--space-2);
         align-items: center;
-        font-size: var(--text-sm);
+        font-size: var(--text-base);
         color: var(--text-muted);
         font-family: var(--font-mono);
     }
@@ -2492,12 +2492,17 @@
     /* ---- ECU pit-diag panels ---- */
     .ecu-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: var(--space-3);
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: var(--space-4);
+    }
+    /* Roomier cards in the telemetry grid — the dense diag reads want
+       breathing room to stay glanceable. */
+    .ecu-grid > .card {
+        padding: var(--space-4);
     }
     .card-h {
-        margin: 0 0 var(--space-2);
-        font-size: var(--text-sm);
+        margin: 0 0 var(--space-3);
+        font-size: var(--text-base);
         font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
@@ -2535,9 +2540,9 @@
     }
     /* Cockpit flag chip — dim by default, lit green when the bit is set. */
     .flag {
-        font-size: var(--text-xs, 0.7rem);
+        font-size: var(--text-sm, 0.8rem);
         font-family: var(--font-mono);
-        padding: 1px 6px;
+        padding: 3px 9px;
         border-radius: var(--radius-sm, 4px);
         border: 1px solid var(--border);
         color: var(--text-muted);
