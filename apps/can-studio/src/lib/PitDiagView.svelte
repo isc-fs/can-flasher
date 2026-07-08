@@ -1121,126 +1121,39 @@
             </div>
         {/if}
 
-        <div class="cockpit">
-            <!-- AMS row — states only (cells + NTC live on the AMS tab) -->
-            <section class="cockpit-row card">
-                <div class="row-label">AMS</div>
-                <div class="row-body">
-                    {#if fsm !== null || relays !== null || pack !== null}
-                        {#if fsm !== null}
-                            <span class="pill pill-{fsmStateTone(fsm.state)}">{fsm.state}</span>
-                        {/if}
-                        <div class="flags">
-                            {#if fsm !== null}
-                                <span class="flag" class:on={fsm.tsms}>TSMS</span>
-                            {/if}
-                            {#if relays !== null}
-                                <span class="flag" class:on={relays.precharge}>Precharge</span>
-                                <span class="flag" class:on={relays.airPositive}>AIR+</span>
-                                <span class="flag" class:on={relays.airNegative}>AIR−</span>
-                            {/if}
-                            <span
-                                class="flag"
-                                class:on={relays?.amsOk ?? fsm?.amsOk ?? false}
-                            >
-                                AMS OK
-                            </span>
-                        </div>
-                        <div class="reads">
-                            {#if pack !== null}
-                                <span class="stat">
-                                    <span>pack</span>
-                                    <strong>{(pack.packVoltageMv / 1000).toFixed(1)} V</strong>
-                                </span>
-                                <span class="stat">
-                                    <span>current</span>
-                                    <strong>{(pack.filteredMa / 1000).toFixed(1)} A</strong>
-                                </span>
-                            {/if}
-                            {#if fsm !== null && fsm.faultReason !== 'None'}
-                                <span class="stat bad">
-                                    <span>fault</span><strong>{fsm.faultReason}</strong>
-                                </span>
-                            {/if}
-                        </div>
-                        {#if crash !== null && !crash.clean}
-                            <span class="pill pill-danger">crash prev boot</span>
-                        {/if}
-                        <span class="muted small cockpit-hint">cells + NTC on AMS tab</span>
-                    {:else}
-                        <span class="muted small">No AMS frame yet.</span>
-                    {/if}
-                </div>
+        <div class="cockpit-full">
+            <section class="cockpit-board">
+                <div class="board-title">AMS</div>
+                {#if amsHasData}
+                    {@render amsStateCards()}
+                {:else}
+                    <div class="card placeholder-card">
+                        <p class="muted small">No AMS frame yet.</p>
+                    </div>
+                {/if}
             </section>
 
-            <!-- ECU row -->
-            <section class="cockpit-row card">
-                <div class="row-label">ECU</div>
-                <div class="row-body">
-                    {#if ecuStatus !== null}
-                        <span class="pill pill-{ecuFsmTone(ecuStatus.fsmState)}">
-                            {ecuStatus.fsmState}
-                        </span>
-                        <span class="pill pill-{ecuInvTone(ecuStatus.invState)}">
-                            inv: {ecuStatus.invState}
-                        </span>
-                        <span class="pill pill-{ecuStatus.dvMode ? 'warning' : 'info'}">
-                            {ecuStatus.dvMode ? 'driverless' : 'manual'}
-                        </span>
-                        {#if ecuDv !== null && (ecuDv.r2dConfirm || ecuDv.dvR2dReq)}
-                            <div class="flags">
-                                <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
-                                <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
-                                <span class="flag" class:on={ecuDv.brakeOverLimit}>EBS brake</span>
-                            </div>
-                        {/if}
-                        <div class="reads">
-                            <span class="stat"><span>torque</span><strong>{ecuStatus.torquePct}%</strong></span>
-                            {#if ecuInverter !== null}
-                                <span class="stat"><span>DC bus</span><strong>{ecuInverter.dcBusVoltage} V</strong></span>
-                                <span class="stat"><span>rpm</span><strong>{ecuInverter.invRpm}</strong></span>
-                            {/if}
-                        </div>
-                    {:else}
-                        <span class="muted small">No ECU frame yet.</span>
-                    {/if}
-                </div>
+            <section class="cockpit-board">
+                <div class="board-title">ECU</div>
+                {#if ecuHasData}
+                    <div class="ecu-grid">{@render ecuCards()}</div>
+                {:else}
+                    <div class="card placeholder-card">
+                        <p class="muted small">No ECU frame yet.</p>
+                    </div>
+                {/if}
             </section>
 
-            <!-- uDV row -->
-            <section class="cockpit-row card">
-                <div class="row-label">uDV</div>
-                <div class="row-body">
-                    {#if udvStatus !== null}
-                        <span
-                            class="pill pill-{udvStatus.asState === 'Emergency'
-                                ? 'danger'
-                                : udvStatus.asState === 'Driving'
-                                  ? 'success'
-                                  : 'info'}"
-                        >
-                            {udvStatus.asState}
-                        </span>
-                        <span class="pill pill-info">assi: {udvStatus.assi}</span>
-                        <div class="flags">
-                            <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>mission</span>
-                                <strong>{udvStatus.missionId < 0 ? 'none' : missionName(udvStatus.missionId)}</strong>
-                            </span>
-                            {#if udvRes !== null}
-                                <span class="stat"><span>RES</span><strong>{udvRes.resStatus}</strong></span>
-                            {/if}
-                        </div>
-                    {:else}
-                        <span class="muted small">No uDV frame yet.</span>
-                    {/if}
-                </div>
+            <section class="cockpit-board">
+                <div class="board-title">uDV</div>
+                {#if udvHasData}
+                    {@render udvCalibCard()}
+                    <div class="ecu-grid">{@render udvCards()}</div>
+                {:else}
+                    <div class="card placeholder-card">
+                        <p class="muted small">No uDV frame yet.</p>
+                    </div>
+                {/if}
             </section>
         </div>
     {:else if profile === 'udv'}
@@ -1308,250 +1221,10 @@
             <!-- Steering end-stop calibration (#428). Gated: only shown
                  while pit-diag is armed and 0x7A0.. frames are arriving
                  (this whole branch). Triggers 0x7DF; progress from 0x7A6. -->
-            <div class="card card-tight calib-card">
-                <div class="calib-head">
-                    <h3 class="card-h">Steering calibration</h3>
-                    {#if calibBusy}
-                        <button type="button" class="btn" disabled>Triggering…</button>
-                    {:else if calibConfirming}
-                        <div class="confirm">
-                            <span class="confirm-text">
-                                Car elevated? The steering will home and sweep.
-                            </span>
-                            <button type="button" class="btn btn-primary" onclick={startCalibration}>
-                                Yes, calibrate
-                            </button>
-                            <button type="button" class="btn" onclick={() => (calibConfirming = false)}>
-                                Cancel
-                            </button>
-                        </div>
-                    {:else}
-                        <button
-                            type="button"
-                            class="btn btn-primary"
-                            onclick={() => (calibConfirming = true)}
-                        >
-                            Calibrate steering
-                        </button>
-                        {#if udvCalib !== null && udvCalib.phase >= 1 && udvCalib.phase <= 8}
-                            <button type="button" class="btn btn-danger" onclick={abortCalibration}>
-                                Abort
-                            </button>
-                        {/if}
-                    {/if}
-                </div>
-
-                {#if calibError !== null}
-                    <div class="banner banner-danger">{calibError}</div>
-                {/if}
-
-                {#if udvCalib !== null}
-                    <div class="badge-row">
-                        <span
-                            class="pill pill-{udvCalib.phase === 9
-                                ? 'success'
-                                : udvCalib.phase === 10
-                                  ? 'danger'
-                                  : 'info'}"
-                        >
-                            {udvCalib.phaseName}
-                        </span>
-                        {#if udvCalib.error !== 0}
-                            <span class="pill pill-danger">error: {udvCalib.errorName}</span>
-                        {/if}
-                    </div>
-                    <div class="reads">
-                        <span class="stat">
-                            <span>center</span>
-                            <strong>{(udvCalib.centerDdeg / 10).toFixed(1)}°</strong>
-                        </span>
-                        <span class="stat">
-                            <span>half-range</span>
-                            <strong>{(udvCalib.halfRangeDdeg / 10).toFixed(1)}°</strong>
-                        </span>
-                        <span class="stat">
-                            <span>limit</span>
-                            <strong>{(udvCalib.limitDdeg / 10).toFixed(1)}°</strong>
-                        </span>
-                    </div>
-                {:else}
-                    <p class="muted small">
-                        Elevate the car, click Calibrate, then follow the wheel to each
-                        end-stop; the steering homes and sweeps to ±limit. Progress
-                        appears here.
-                    </p>
-                {/if}
-            </div>
+            {@render udvCalibCard()}
 
             <div class="ecu-grid">
-                <!-- AS status (0x7A0) -->
-                <div class="card">
-                    <h3 class="card-h">Autonomous system</h3>
-                    {#if udvStatus !== null}
-                        <div class="badge-row">
-                            <span
-                                class="pill pill-{udvStatus.asState === 'Emergency'
-                                    ? 'danger'
-                                    : udvStatus.asState === 'Driving'
-                                      ? 'success'
-                                      : 'info'}"
-                            >
-                                {udvStatus.asState}
-                            </span>
-                            <span class="pill pill-info">assi: {udvStatus.assi}</span>
-                            <span class="pill pill-info">ebs: {udvStatus.ebsInit}</span>
-                        </div>
-                        <div class="flags">
-                            <span class="flag" class:on={bit(udvStatus.signals, 0)}>ASMS</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 4)}>ASB</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 5)}>Brakes</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
-                            <span class="flag" class:on={bit(udvStatus.signals, 2)}>SDC open</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>mission</span>
-                                <strong>
-                                    {udvStatus.missionId < 0
-                                        ? 'none'
-                                        : `${udvStatus.missionId} · ${missionName(udvStatus.missionId)}`}
-                                </strong>
-                            </span>
-                            <span class="stat">
-                                <span>stubs</span>
-                                <strong>
-                                    {bit(udvStatus.stubMask, 0) ? 'EBS ' : ''}{bit(
-                                        udvStatus.stubMask,
-                                        1,
-                                    )
-                                        ? 'DVPC'
-                                        : ''}{udvStatus.stubMask === 0 ? 'none' : ''}
-                                </strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No status frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- RES + steering (0x7A1) -->
-                <div class="card">
-                    <h3 class="card-h">RES / steering</h3>
-                    {#if udvRes !== null}
-                        <div class="badge-row">
-                            <span
-                                class="pill pill-{udvRes.resStatus === 'Estop'
-                                    ? 'danger'
-                                    : udvRes.resStatus === 'Go'
-                                      ? 'success'
-                                      : 'info'}"
-                            >
-                                RES: {udvRes.resStatus}
-                            </span>
-                            <span
-                                class="pill pill-{udvRes.steerMotor === 'Emergency'
-                                    ? 'danger'
-                                    : udvRes.steerMotor === 'On'
-                                      ? 'success'
-                                      : 'info'}"
-                            >
-                                steer: {udvRes.steerMotor}
-                            </span>
-                        </div>
-                        <div class="flags">
-                            <span class="flag" class:on={bit(udvRes.bits, 0)}>E-stop</span>
-                            <span class="flag" class:on={bit(udvRes.bits, 1)}>Go</span>
-                            <span class="flag" class:on={bit(udvRes.bits, 2)}>Pre-alarm</span>
-                            <span class="flag" class:on={bit(udvRes.bits, 3)}>Brake&gt;lim</span>
-                            <span class="flag" class:on={bit(udvRes.bits, 6)}>TS active</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>radio</span><strong>{udvRes.radioQuality}</strong>
-                            </span>
-                            <span class="stat" class:bad={udvRes.resAgeMs === 65535}>
-                                <span>RES age</span>
-                                <strong>{udvRes.resAgeMs === 65535 ? 'never' : `${udvRes.resAgeMs} ms`}</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No RES frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- /dv pipe (0x7A2) -->
-                <div class="card">
-                    <h3 class="card-h">/dv pipe</h3>
-                    {#if udvPipe !== null}
-                        <div class="flags">
-                            <span class="flag" class:on={bit(udvPipe.setupBits, 0)}>Setup</span>
-                            <span class="flag" class:on={bit(udvPipe.setupBits, 1)}>Ready</span>
-                            <span class="flag" class:on={bit(udvPipe.setupBits, 2)}>Going</span>
-                            <span class="flag" class:on={bit(udvPipe.setupBits, 3)}>Emergency</span>
-                            <span class="flag" class:on={bit(udvPipe.setupBits, 4)}>Finished</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>accel cmd</span><strong>{udvPipe.accelCmdPct}%</strong>
-                            </span>
-                            <span class="stat">
-                                <span>steer cmd</span><strong>{udvPipe.steerCmd}</strong>
-                            </span>
-                            <span class="stat" class:bad={udvPipe.dvAgeMs === 65535}>
-                                <span>/dv age</span>
-                                <strong>{udvPipe.dvAgeMs === 65535 ? 'never' : `${udvPipe.dvAgeMs} ms`}</strong>
-                            </span>
-                            <span class="stat">
-                                <span>ctrl age</span>
-                                <strong>{udvPipe.ctrlAgeMs === 65535 ? 'never' : `${udvPipe.ctrlAgeMs} ms`}</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No pipe frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- Firmware health (0x7A3) -->
-                <div class="card">
-                    <h3 class="card-h">Firmware health</h3>
-                    {#if udvHealth !== null}
-                        <div class="flags">
-                            <span class="flag" class:on={bit(udvHealth.taskMask, 0)}>IMU</span>
-                            <span class="flag" class:on={bit(udvHealth.taskMask, 1)}>CAN</span>
-                            <span class="flag" class:on={bit(udvHealth.taskMask, 2)}>APP</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>free heap</span>
-                                <strong class="mono">{udvHealth.freeHeapWords * 4} B</strong>
-                            </span>
-                            <span class="stat">
-                                <span>min heap</span>
-                                <strong class="mono">{udvHealth.minFreeHeapWords * 4} B</strong>
-                            </span>
-                            <span class="stat">
-                                <span>uptime</span><strong>{udvHealth.uptimeS} s</strong>
-                            </span>
-                            <span class="stat" class:bad={udvHealth.stalledTask >= 0}>
-                                <span>stalled task</span>
-                                <strong>{udvHealth.stalledTask < 0 ? 'none' : udvHealth.stalledTask}</strong>
-                            </span>
-                            <span class="stat" class:bad={bit(udvHealth.flags, 0)}>
-                                <span>IWDG reset</span>
-                                <strong>{bit(udvHealth.flags, 0) ? 'yes' : 'no'}</strong>
-                            </span>
-                            <span class="stat" class:bad={bit(udvHealth.flags, 1)}>
-                                <span>emergency</span>
-                                <strong>{bit(udvHealth.flags, 1) ? 'latched' : 'no'}</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No health frame yet.</p>
-                    {/if}
-                </div>
+                {@render udvCards()}
             </div>
         {/if}
     {:else if profile === 'ecu'}
@@ -1616,255 +1289,7 @@
             </div>
         {:else}
             <div class="ecu-grid">
-                <!-- Vehicle FSM / status (0x700) -->
-                <div class="card">
-                    <h3 class="card-h">Vehicle FSM</h3>
-                    {#if ecuStatus !== null}
-                        <div class="badge-row">
-                            <span class="pill pill-{ecuFsmTone(ecuStatus.fsmState)}">
-                                {ecuStatus.fsmState}
-                            </span>
-                            <span class="pill pill-{ecuInvTone(ecuStatus.invState)}">
-                                inv: {ecuStatus.invState}
-                            </span>
-                            <span
-                                class="pill pill-{ecuStatus.dvMode ? 'warning' : 'info'}"
-                                title="Drive mode latched at ready-to-drive (0x700 dv_mode). Driverless = uDV torque source; Manual = pedals."
-                            >
-                                {ecuStatus.dvMode ? 'driverless' : 'manual'}
-                            </span>
-                        </div>
-                        <div class="flags">
-                            <span class="flag" class:on={ecuStatus.ev23}>EV 2.3</span>
-                            <span class="flag" class:on={ecuStatus.t1189}>T11.8/9</span>
-                            <span class="flag" class:on={ecuStatus.rtdsActive}>RTDS</span>
-                            <span class="flag" class:on={ecuStatus.okPrecharge}>
-                                Precharge
-                            </span>
-                            <span class="flag" class:on={ecuStatus.startButton}>
-                                Start btn
-                            </span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>torque</span><strong>{ecuStatus.torquePct}%</strong>
-                            </span>
-                            <span class="stat">
-                                <span>torque cmd</span><strong>{ecuStatus.torqueCmd}</strong>
-                            </span>
-                            <span class="stat">
-                                <span>min cell</span>
-                                <strong>{(ecuStatus.vCellMinMv / 1000).toFixed(3)} V</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No status frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- Pedals / APPS (0x701) -->
-                <div class="card">
-                    <h3 class="card-h">Pedals (APPS)</h3>
-                    {#if ecuPedals !== null}
-                        <div class="meter-row">
-                            <span class="meter-label">APPS1</span>
-                            <div class="meter">
-                                <div
-                                    class="meter-fill"
-                                    style="width: {Math.min(ecuPedals.apps1Pct, 100)}%"
-                                ></div>
-                            </div>
-                            <span class="meter-val mono">{ecuPedals.apps1Pct}%</span>
-                            <span class="meter-raw muted mono">{ecuPedals.apps1Raw}</span>
-                        </div>
-                        <div class="meter-row">
-                            <span class="meter-label">APPS2</span>
-                            <div class="meter">
-                                <div
-                                    class="meter-fill"
-                                    style="width: {Math.min(ecuPedals.apps2Pct, 100)}%"
-                                ></div>
-                            </div>
-                            <span class="meter-val mono">{ecuPedals.apps2Pct}%</span>
-                            <span class="meter-raw muted mono">{ecuPedals.apps2Raw}</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat" class:bad={appsImplausible}>
-                                <span>APPS Δ</span>
-                                <strong>{appsDelta}%{appsImplausible ? ' ⚠' : ''}</strong>
-                            </span>
-                            <span class="stat">
-                                <span>brake raw</span>
-                                <strong class="mono">{ecuPedals.brakeRaw}</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No pedal frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- Brake (0x705) -->
-                <div class="card">
-                    <h3 class="card-h">Brake</h3>
-                    {#if ecuBrake !== null}
-                        <div class="meter-row">
-                            <span class="meter-label">Brake</span>
-                            <div class="meter">
-                                <div
-                                    class="meter-fill"
-                                    style="width: {Math.min(ecuBrake.brakePct, 100)}%"
-                                ></div>
-                            </div>
-                            <span class="meter-val mono">{ecuBrake.brakePct}%</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>pressure</span>
-                                <strong>{(ecuBrake.brakePressureDbar / 10).toFixed(1)} bar</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No brake frame yet.</p>
-                    {/if}
-                </div>
-
-                <!-- Inverter (0x702) -->
-                <div class="card">
-                    <h3 class="card-h">Inverter</h3>
-                    {#if ecuInverter !== null}
-                        <div class="reads">
-                            <span class="stat">
-                                <span>DC bus</span>
-                                <strong>{ecuInverter.dcBusVoltage} V</strong>
-                            </span>
-                            <span class="stat">
-                                <span>motor</span>
-                                <strong>{ecuInverter.invRpm} rpm</strong>
-                            </span>
-                            <span class="stat" class:bad={ecuInverter.invError !== 0}>
-                                <span>error</span>
-                                <strong class="mono">
-                                    0x{ecuInverter.invError
-                                        .toString(16)
-                                        .toUpperCase()
-                                        .padStart(2, '0')}
-                                </strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No inverter frame yet.</p>
-                    {/if}
-                    {#if ecuInvTemps !== null}
-                        <div class="reads reads-temps">
-                            <span
-                                class="stat"
-                                class:bad={ecuInvTemps.boardDegc === INV_TEMP_NC}
-                            >
-                                <span>board</span>
-                                <strong>{fmtInvTemp(ecuInvTemps.boardDegc)}</strong>
-                            </span>
-                            <span
-                                class="stat"
-                                class:bad={ecuInvTemps.pwrstgDegc === INV_TEMP_NC}
-                            >
-                                <span>pwr stage</span>
-                                <strong>{fmtInvTemp(ecuInvTemps.pwrstgDegc)}</strong>
-                            </span>
-                            <span
-                                class="stat"
-                                class:bad={ecuInvTemps.motor1Degc === INV_TEMP_NC}
-                            >
-                                <span>motor 1</span>
-                                <strong>{fmtInvTemp(ecuInvTemps.motor1Degc)}</strong>
-                            </span>
-                            <span
-                                class="stat"
-                                class:bad={ecuInvTemps.motor2Degc === INV_TEMP_NC}
-                            >
-                                <span>motor 2</span>
-                                <strong>{fmtInvTemp(ecuInvTemps.motor2Degc)}</strong>
-                            </span>
-                        </div>
-                    {/if}
-                </div>
-
-                <!-- Firmware health (0x704, 1 Hz) -->
-                <div class="card">
-                    <h3 class="card-h">Firmware health</h3>
-                    {#if ecuHealth !== null}
-                        <div class="flags">
-                            <span class="flag" class:on={ecuHealth.taskControl}>
-                                Control
-                            </span>
-                            <span class="flag" class:on={ecuHealth.taskCanRx}>CAN-RX</span>
-                            <span class="flag" class:on={ecuHealth.taskCanTx}>CAN-TX</span>
-                            <span class="flag" class:on={ecuHealth.taskDiag}>Diag</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>free heap</span>
-                                <strong class="mono">{ecuHealth.freeHeap} B</strong>
-                            </span>
-                            <span class="stat">
-                                <span>min heap</span>
-                                <strong class="mono">{ecuHealth.minFreeHeap} B</strong>
-                            </span>
-                            <span class="stat">
-                                <span>uptime</span><strong>{ecuHealth.uptimeS} s</strong>
-                            </span>
-                            <span class="stat">
-                                <span>reset</span>
-                                <strong
-                                    class:bad={ecuHealth.resetCause === 'iwdg' ||
-                                        ecuHealth.resetCause === 'wwdg'}
-                                >
-                                    {ecuHealth.resetCause}
-                                </strong>
-                            </span>
-                            <span class="stat" class:bad={ecuHealth.lastFault !== 0}>
-                                <span>last fault</span>
-                                <strong>{ecuHealth.lastFaultName}</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">No health frame yet (arrives at 1 Hz).</p>
-                    {/if}
-                </div>
-
-                <!-- DV / autonomy (0x707) — the ECU's view of the uDV
-                     handshake. `driverless` on the FSM card above means the
-                     0x507 torque here is the torque source, not the pedals. -->
-                <div class="card">
-                    <h3 class="card-h">DV</h3>
-                    {#if ecuDv !== null}
-                        <div class="flags">
-                            <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
-                            <span class="flag" class:on={ecuDv.dvCmdFresh}>
-                                Cmd stream
-                            </span>
-                            <span class="flag" class:on={ecuDv.tsActive}>TS active</span>
-                            <span class="flag" class:on={ecuDv.brakeOverLimit}>
-                                EBS brake
-                            </span>
-                            <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
-                        </div>
-                        <div class="reads">
-                            <span class="stat">
-                                <span>DV torque</span>
-                                <strong>{ecuDv.dvTorquePct}%</strong>
-                            </span>
-                            <span class="stat">
-                                <span>motor</span>
-                                <strong>{ecuDv.motorRpmMech} rpm</strong>
-                            </span>
-                        </div>
-                    {:else}
-                        <p class="muted small">
-                            No DV frame yet. Streams at 10 Hz while armed;
-                            the flags stay low until the uDV drives the bus.
-                        </p>
-                    {/if}
-                </div>
+                {@render ecuCards()}
             </div>
         {/if}
     {:else}
@@ -1938,6 +1363,73 @@
         </div>
     {:else}
 
+    {@render amsStateCards()}
+
+    <!-- Cell-V grid -->
+    <section class="card">
+        <div class="card-header">
+            <h3>Cell voltages</h3>
+            <span class="muted small">
+                5 modules × 19 cells = 95. Colour = deviation from pack mean.
+            </span>
+        </div>
+        <div class="grid">
+            {#each cellRows as row, m (m)}
+                <div class="grid-row" role="row">
+                    <span class="row-label">M{m + 1}</span>
+                    {#each row as cell (cell.idx)}
+                        <div
+                            class="tile"
+                            class:empty={cell.mv === null}
+                            style:background={cellColor(cell.mv)}
+                            title="Cell {cell.idx + 1} — {cell.mv ?? '—'} mV"
+                        >
+                            <span class="tile-value mono">
+                                {cell.mv ?? '—'}
+                            </span>
+                        </div>
+                    {/each}
+                </div>
+            {/each}
+        </div>
+    </section>
+
+    <!-- NTC temp heatmap -->
+    <section class="card">
+        <div class="card-header">
+            <h3>NTC temperatures</h3>
+            <span class="muted small">
+                {#if ntcStats !== null}
+                    range {ntcStats.min}…{ntcStats.max} °C ·
+                    {ntcStats.count}/{AMS_NUM_NTCS} reading
+                {:else}
+                    5 modules × 40 NTCs = 200.
+                {/if}
+            </span>
+        </div>
+        <div class="grid">
+            {#each ntcRows as row, m (m)}
+                <div class="grid-row" role="row">
+                    <span class="row-label">M{m + 1}</span>
+                    {#each row as ntc (ntc.idx)}
+                        <div
+                            class="tile ntc-tile"
+                            class:empty={ntc.c === null}
+                            style:background={ntcColor(ntc.c)}
+                            title="NTC {ntc.idx + 1} — {ntc.c ?? '—'} °C"
+                        ></div>
+                    {/each}
+                </div>
+            {/each}
+        </div>
+    </section>
+    {/if}
+    {/if}
+</div>
+
+<!-- Reusable board card sets — rendered both on the per-board tabs
+     above and stacked together in the "All" cockpit. -->
+{#snippet amsStateCards()}
     <!--
         Safety net: when the observed frames/scan count drifts from
         the expected total by more than ±2, banner a warning. This
@@ -2268,68 +1760,507 @@
             </p>
         </section>
     {/if}
+{/snippet}
 
-    <!-- Cell-V grid -->
-    <section class="card">
-        <div class="card-header">
-            <h3>Cell voltages</h3>
-            <span class="muted small">
-                5 modules × 19 cells = 95. Colour = deviation from pack mean.
-            </span>
-        </div>
-        <div class="grid">
-            {#each cellRows as row, m (m)}
-                <div class="grid-row" role="row">
-                    <span class="row-label">M{m + 1}</span>
-                    {#each row as cell (cell.idx)}
-                        <div
-                            class="tile"
-                            class:empty={cell.mv === null}
-                            style:background={cellColor(cell.mv)}
-                            title="Cell {cell.idx + 1} — {cell.mv ?? '—'} mV"
-                        >
-                            <span class="tile-value mono">
-                                {cell.mv ?? '—'}
+{#snippet ecuCards()}
+                <!-- Vehicle FSM / status (0x700) -->
+                <div class="card">
+                    <h3 class="card-h">Vehicle FSM</h3>
+                    {#if ecuStatus !== null}
+                        <div class="badge-row">
+                            <span class="pill pill-{ecuFsmTone(ecuStatus.fsmState)}">
+                                {ecuStatus.fsmState}
+                            </span>
+                            <span class="pill pill-{ecuInvTone(ecuStatus.invState)}">
+                                inv: {ecuStatus.invState}
+                            </span>
+                            <span
+                                class="pill pill-{ecuStatus.dvMode ? 'warning' : 'info'}"
+                                title="Drive mode latched at ready-to-drive (0x700 dv_mode). Driverless = uDV torque source; Manual = pedals."
+                            >
+                                {ecuStatus.dvMode ? 'driverless' : 'manual'}
                             </span>
                         </div>
-                    {/each}
+                        <div class="flags">
+                            <span class="flag" class:on={ecuStatus.ev23}>EV 2.3</span>
+                            <span class="flag" class:on={ecuStatus.t1189}>T11.8/9</span>
+                            <span class="flag" class:on={ecuStatus.rtdsActive}>RTDS</span>
+                            <span class="flag" class:on={ecuStatus.okPrecharge}>
+                                Precharge
+                            </span>
+                            <span class="flag" class:on={ecuStatus.startButton}>
+                                Start btn
+                            </span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>torque</span><strong>{ecuStatus.torquePct}%</strong>
+                            </span>
+                            <span class="stat">
+                                <span>torque cmd</span><strong>{ecuStatus.torqueCmd}</strong>
+                            </span>
+                            <span class="stat">
+                                <span>min cell</span>
+                                <strong>{(ecuStatus.vCellMinMv / 1000).toFixed(3)} V</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No status frame yet.</p>
+                    {/if}
                 </div>
-            {/each}
-        </div>
-    </section>
 
-    <!-- NTC temp heatmap -->
-    <section class="card">
-        <div class="card-header">
-            <h3>NTC temperatures</h3>
-            <span class="muted small">
-                {#if ntcStats !== null}
-                    range {ntcStats.min}…{ntcStats.max} °C ·
-                    {ntcStats.count}/{AMS_NUM_NTCS} reading
-                {:else}
-                    5 modules × 40 NTCs = 200.
-                {/if}
-            </span>
-        </div>
-        <div class="grid">
-            {#each ntcRows as row, m (m)}
-                <div class="grid-row" role="row">
-                    <span class="row-label">M{m + 1}</span>
-                    {#each row as ntc (ntc.idx)}
-                        <div
-                            class="tile ntc-tile"
-                            class:empty={ntc.c === null}
-                            style:background={ntcColor(ntc.c)}
-                            title="NTC {ntc.idx + 1} — {ntc.c ?? '—'} °C"
-                        ></div>
-                    {/each}
+                <!-- Pedals / APPS (0x701) -->
+                <div class="card">
+                    <h3 class="card-h">Pedals (APPS)</h3>
+                    {#if ecuPedals !== null}
+                        <div class="meter-row">
+                            <span class="meter-label">APPS1</span>
+                            <div class="meter">
+                                <div
+                                    class="meter-fill"
+                                    style="width: {Math.min(ecuPedals.apps1Pct, 100)}%"
+                                ></div>
+                            </div>
+                            <span class="meter-val mono">{ecuPedals.apps1Pct}%</span>
+                            <span class="meter-raw muted mono">{ecuPedals.apps1Raw}</span>
+                        </div>
+                        <div class="meter-row">
+                            <span class="meter-label">APPS2</span>
+                            <div class="meter">
+                                <div
+                                    class="meter-fill"
+                                    style="width: {Math.min(ecuPedals.apps2Pct, 100)}%"
+                                ></div>
+                            </div>
+                            <span class="meter-val mono">{ecuPedals.apps2Pct}%</span>
+                            <span class="meter-raw muted mono">{ecuPedals.apps2Raw}</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat" class:bad={appsImplausible}>
+                                <span>APPS Δ</span>
+                                <strong>{appsDelta}%{appsImplausible ? ' ⚠' : ''}</strong>
+                            </span>
+                            <span class="stat">
+                                <span>brake raw</span>
+                                <strong class="mono">{ecuPedals.brakeRaw}</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No pedal frame yet.</p>
+                    {/if}
                 </div>
-            {/each}
-        </div>
-    </section>
-    {/if}
-    {/if}
-</div>
+
+                <!-- Brake (0x705) -->
+                <div class="card">
+                    <h3 class="card-h">Brake</h3>
+                    {#if ecuBrake !== null}
+                        <div class="meter-row">
+                            <span class="meter-label">Brake</span>
+                            <div class="meter">
+                                <div
+                                    class="meter-fill"
+                                    style="width: {Math.min(ecuBrake.brakePct, 100)}%"
+                                ></div>
+                            </div>
+                            <span class="meter-val mono">{ecuBrake.brakePct}%</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>pressure</span>
+                                <strong>{(ecuBrake.brakePressureDbar / 10).toFixed(1)} bar</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No brake frame yet.</p>
+                    {/if}
+                </div>
+
+                <!-- Inverter (0x702) -->
+                <div class="card">
+                    <h3 class="card-h">Inverter</h3>
+                    {#if ecuInverter !== null}
+                        <div class="reads">
+                            <span class="stat">
+                                <span>DC bus</span>
+                                <strong>{ecuInverter.dcBusVoltage} V</strong>
+                            </span>
+                            <span class="stat">
+                                <span>motor</span>
+                                <strong>{ecuInverter.invRpm} rpm</strong>
+                            </span>
+                            <span class="stat" class:bad={ecuInverter.invError !== 0}>
+                                <span>error</span>
+                                <strong class="mono">
+                                    0x{ecuInverter.invError
+                                        .toString(16)
+                                        .toUpperCase()
+                                        .padStart(2, '0')}
+                                </strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No inverter frame yet.</p>
+                    {/if}
+                    {#if ecuInvTemps !== null}
+                        <div class="reads reads-temps">
+                            <span
+                                class="stat"
+                                class:bad={ecuInvTemps.boardDegc === INV_TEMP_NC}
+                            >
+                                <span>board</span>
+                                <strong>{fmtInvTemp(ecuInvTemps.boardDegc)}</strong>
+                            </span>
+                            <span
+                                class="stat"
+                                class:bad={ecuInvTemps.pwrstgDegc === INV_TEMP_NC}
+                            >
+                                <span>pwr stage</span>
+                                <strong>{fmtInvTemp(ecuInvTemps.pwrstgDegc)}</strong>
+                            </span>
+                            <span
+                                class="stat"
+                                class:bad={ecuInvTemps.motor1Degc === INV_TEMP_NC}
+                            >
+                                <span>motor 1</span>
+                                <strong>{fmtInvTemp(ecuInvTemps.motor1Degc)}</strong>
+                            </span>
+                            <span
+                                class="stat"
+                                class:bad={ecuInvTemps.motor2Degc === INV_TEMP_NC}
+                            >
+                                <span>motor 2</span>
+                                <strong>{fmtInvTemp(ecuInvTemps.motor2Degc)}</strong>
+                            </span>
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Firmware health (0x704, 1 Hz) -->
+                <div class="card">
+                    <h3 class="card-h">Firmware health</h3>
+                    {#if ecuHealth !== null}
+                        <div class="flags">
+                            <span class="flag" class:on={ecuHealth.taskControl}>
+                                Control
+                            </span>
+                            <span class="flag" class:on={ecuHealth.taskCanRx}>CAN-RX</span>
+                            <span class="flag" class:on={ecuHealth.taskCanTx}>CAN-TX</span>
+                            <span class="flag" class:on={ecuHealth.taskDiag}>Diag</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>free heap</span>
+                                <strong class="mono">{ecuHealth.freeHeap} B</strong>
+                            </span>
+                            <span class="stat">
+                                <span>min heap</span>
+                                <strong class="mono">{ecuHealth.minFreeHeap} B</strong>
+                            </span>
+                            <span class="stat">
+                                <span>uptime</span><strong>{ecuHealth.uptimeS} s</strong>
+                            </span>
+                            <span class="stat">
+                                <span>reset</span>
+                                <strong
+                                    class:bad={ecuHealth.resetCause === 'iwdg' ||
+                                        ecuHealth.resetCause === 'wwdg'}
+                                >
+                                    {ecuHealth.resetCause}
+                                </strong>
+                            </span>
+                            <span class="stat" class:bad={ecuHealth.lastFault !== 0}>
+                                <span>last fault</span>
+                                <strong>{ecuHealth.lastFaultName}</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No health frame yet (arrives at 1 Hz).</p>
+                    {/if}
+                </div>
+
+                <!-- DV / autonomy (0x707) — the ECU's view of the uDV
+                     handshake. `driverless` on the FSM card above means the
+                     0x507 torque here is the torque source, not the pedals. -->
+                <div class="card">
+                    <h3 class="card-h">DV</h3>
+                    {#if ecuDv !== null}
+                        <div class="flags">
+                            <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
+                            <span class="flag" class:on={ecuDv.dvCmdFresh}>
+                                Cmd stream
+                            </span>
+                            <span class="flag" class:on={ecuDv.tsActive}>TS active</span>
+                            <span class="flag" class:on={ecuDv.brakeOverLimit}>
+                                EBS brake
+                            </span>
+                            <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>DV torque</span>
+                                <strong>{ecuDv.dvTorquePct}%</strong>
+                            </span>
+                            <span class="stat">
+                                <span>motor</span>
+                                <strong>{ecuDv.motorRpmMech} rpm</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">
+                            No DV frame yet. Streams at 10 Hz while armed;
+                            the flags stay low until the uDV drives the bus.
+                        </p>
+                    {/if}
+                </div>
+{/snippet}
+
+{#snippet udvCalibCard()}
+            <div class="card card-tight calib-card">
+                <div class="calib-head">
+                    <h3 class="card-h">Steering calibration</h3>
+                    {#if calibBusy}
+                        <button type="button" class="btn" disabled>Triggering…</button>
+                    {:else if calibConfirming}
+                        <div class="confirm">
+                            <span class="confirm-text">
+                                Car elevated? The steering will home and sweep.
+                            </span>
+                            <button type="button" class="btn btn-primary" onclick={startCalibration}>
+                                Yes, calibrate
+                            </button>
+                            <button type="button" class="btn" onclick={() => (calibConfirming = false)}>
+                                Cancel
+                            </button>
+                        </div>
+                    {:else}
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            onclick={() => (calibConfirming = true)}
+                        >
+                            Calibrate steering
+                        </button>
+                        {#if udvCalib !== null && udvCalib.phase >= 1 && udvCalib.phase <= 8}
+                            <button type="button" class="btn btn-danger" onclick={abortCalibration}>
+                                Abort
+                            </button>
+                        {/if}
+                    {/if}
+                </div>
+
+                {#if calibError !== null}
+                    <div class="banner banner-danger">{calibError}</div>
+                {/if}
+
+                {#if udvCalib !== null}
+                    <div class="badge-row">
+                        <span
+                            class="pill pill-{udvCalib.phase === 9
+                                ? 'success'
+                                : udvCalib.phase === 10
+                                  ? 'danger'
+                                  : 'info'}"
+                        >
+                            {udvCalib.phaseName}
+                        </span>
+                        {#if udvCalib.error !== 0}
+                            <span class="pill pill-danger">error: {udvCalib.errorName}</span>
+                        {/if}
+                    </div>
+                    <div class="reads">
+                        <span class="stat">
+                            <span>center</span>
+                            <strong>{(udvCalib.centerDdeg / 10).toFixed(1)}°</strong>
+                        </span>
+                        <span class="stat">
+                            <span>half-range</span>
+                            <strong>{(udvCalib.halfRangeDdeg / 10).toFixed(1)}°</strong>
+                        </span>
+                        <span class="stat">
+                            <span>limit</span>
+                            <strong>{(udvCalib.limitDdeg / 10).toFixed(1)}°</strong>
+                        </span>
+                    </div>
+                {:else}
+                    <p class="muted small">
+                        Elevate the car, click Calibrate, then follow the wheel to each
+                        end-stop; the steering homes and sweeps to ±limit. Progress
+                        appears here.
+                    </p>
+                {/if}
+            </div>
+{/snippet}
+
+{#snippet udvCards()}
+                <!-- AS status (0x7A0) -->
+                <div class="card">
+                    <h3 class="card-h">Autonomous system</h3>
+                    {#if udvStatus !== null}
+                        <div class="badge-row">
+                            <span
+                                class="pill pill-{udvStatus.asState === 'Emergency'
+                                    ? 'danger'
+                                    : udvStatus.asState === 'Driving'
+                                      ? 'success'
+                                      : 'info'}"
+                            >
+                                {udvStatus.asState}
+                            </span>
+                            <span class="pill pill-info">assi: {udvStatus.assi}</span>
+                            <span class="pill pill-info">ebs: {udvStatus.ebsInit}</span>
+                        </div>
+                        <div class="flags">
+                            <span class="flag" class:on={bit(udvStatus.signals, 0)}>ASMS</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 4)}>ASB</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 5)}>Brakes</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 2)}>SDC open</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>mission</span>
+                                <strong>
+                                    {udvStatus.missionId < 0
+                                        ? 'none'
+                                        : `${udvStatus.missionId} · ${missionName(udvStatus.missionId)}`}
+                                </strong>
+                            </span>
+                            <span class="stat">
+                                <span>stubs</span>
+                                <strong>
+                                    {bit(udvStatus.stubMask, 0) ? 'EBS ' : ''}{bit(
+                                        udvStatus.stubMask,
+                                        1,
+                                    )
+                                        ? 'DVPC'
+                                        : ''}{udvStatus.stubMask === 0 ? 'none' : ''}
+                                </strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No status frame yet.</p>
+                    {/if}
+                </div>
+
+                <!-- RES + steering (0x7A1) -->
+                <div class="card">
+                    <h3 class="card-h">RES / steering</h3>
+                    {#if udvRes !== null}
+                        <div class="badge-row">
+                            <span
+                                class="pill pill-{udvRes.resStatus === 'Estop'
+                                    ? 'danger'
+                                    : udvRes.resStatus === 'Go'
+                                      ? 'success'
+                                      : 'info'}"
+                            >
+                                RES: {udvRes.resStatus}
+                            </span>
+                            <span
+                                class="pill pill-{udvRes.steerMotor === 'Emergency'
+                                    ? 'danger'
+                                    : udvRes.steerMotor === 'On'
+                                      ? 'success'
+                                      : 'info'}"
+                            >
+                                steer: {udvRes.steerMotor}
+                            </span>
+                        </div>
+                        <div class="flags">
+                            <span class="flag" class:on={bit(udvRes.bits, 0)}>E-stop</span>
+                            <span class="flag" class:on={bit(udvRes.bits, 1)}>Go</span>
+                            <span class="flag" class:on={bit(udvRes.bits, 2)}>Pre-alarm</span>
+                            <span class="flag" class:on={bit(udvRes.bits, 3)}>Brake&gt;lim</span>
+                            <span class="flag" class:on={bit(udvRes.bits, 6)}>TS active</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>radio</span><strong>{udvRes.radioQuality}</strong>
+                            </span>
+                            <span class="stat" class:bad={udvRes.resAgeMs === 65535}>
+                                <span>RES age</span>
+                                <strong>{udvRes.resAgeMs === 65535 ? 'never' : `${udvRes.resAgeMs} ms`}</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No RES frame yet.</p>
+                    {/if}
+                </div>
+
+                <!-- /dv pipe (0x7A2) -->
+                <div class="card">
+                    <h3 class="card-h">/dv pipe</h3>
+                    {#if udvPipe !== null}
+                        <div class="flags">
+                            <span class="flag" class:on={bit(udvPipe.setupBits, 0)}>Setup</span>
+                            <span class="flag" class:on={bit(udvPipe.setupBits, 1)}>Ready</span>
+                            <span class="flag" class:on={bit(udvPipe.setupBits, 2)}>Going</span>
+                            <span class="flag" class:on={bit(udvPipe.setupBits, 3)}>Emergency</span>
+                            <span class="flag" class:on={bit(udvPipe.setupBits, 4)}>Finished</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>accel cmd</span><strong>{udvPipe.accelCmdPct}%</strong>
+                            </span>
+                            <span class="stat">
+                                <span>steer cmd</span><strong>{udvPipe.steerCmd}</strong>
+                            </span>
+                            <span class="stat" class:bad={udvPipe.dvAgeMs === 65535}>
+                                <span>/dv age</span>
+                                <strong>{udvPipe.dvAgeMs === 65535 ? 'never' : `${udvPipe.dvAgeMs} ms`}</strong>
+                            </span>
+                            <span class="stat">
+                                <span>ctrl age</span>
+                                <strong>{udvPipe.ctrlAgeMs === 65535 ? 'never' : `${udvPipe.ctrlAgeMs} ms`}</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No pipe frame yet.</p>
+                    {/if}
+                </div>
+
+                <!-- Firmware health (0x7A3) -->
+                <div class="card">
+                    <h3 class="card-h">Firmware health</h3>
+                    {#if udvHealth !== null}
+                        <div class="flags">
+                            <span class="flag" class:on={bit(udvHealth.taskMask, 0)}>IMU</span>
+                            <span class="flag" class:on={bit(udvHealth.taskMask, 1)}>CAN</span>
+                            <span class="flag" class:on={bit(udvHealth.taskMask, 2)}>APP</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>free heap</span>
+                                <strong class="mono">{udvHealth.freeHeapWords * 4} B</strong>
+                            </span>
+                            <span class="stat">
+                                <span>min heap</span>
+                                <strong class="mono">{udvHealth.minFreeHeapWords * 4} B</strong>
+                            </span>
+                            <span class="stat">
+                                <span>uptime</span><strong>{udvHealth.uptimeS} s</strong>
+                            </span>
+                            <span class="stat" class:bad={udvHealth.stalledTask >= 0}>
+                                <span>stalled task</span>
+                                <strong>{udvHealth.stalledTask < 0 ? 'none' : udvHealth.stalledTask}</strong>
+                            </span>
+                            <span class="stat" class:bad={bit(udvHealth.flags, 0)}>
+                                <span>IWDG reset</span>
+                                <strong>{bit(udvHealth.flags, 0) ? 'yes' : 'no'}</strong>
+                            </span>
+                            <span class="stat" class:bad={bit(udvHealth.flags, 1)}>
+                                <span>emergency</span>
+                                <strong>{bit(udvHealth.flags, 1) ? 'latched' : 'no'}</strong>
+                            </span>
+                        </div>
+                    {:else}
+                        <p class="muted small">No health frame yet.</p>
+                    {/if}
+                </div>
+{/snippet}
 
 <style>
     /* Most chrome (.view, .card, .card-header, .banner-*, .btn,
@@ -2668,42 +2599,26 @@
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: var(--space-4);
     }
-    /* Cockpit — the three boards stacked as wide horizontal rows, each a
-       label + a single horizontal line of pills / flags / reads. */
-    .cockpit {
+    /* Cockpit ("All") — the three boards stacked vertically; each board
+       shows its full card set (AMS minus the cell/NTC grids, which stay
+       on its own tab). Cards flow horizontally within each board's grid. */
+    .cockpit-full {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5, 2rem);
+    }
+    .cockpit-board {
         display: flex;
         flex-direction: column;
         gap: var(--space-3);
     }
-    .cockpit-row {
-        display: flex;
-        align-items: center;
-        gap: var(--space-4);
-        padding: var(--space-4);
-    }
-    .row-label {
-        flex: 0 0 auto;
-        min-width: 56px;
-        font-weight: 600;
-        font-size: var(--text-lg, 1.1rem);
+    .board-title {
+        font-weight: 700;
+        font-size: var(--text-lg, 1.15rem);
+        letter-spacing: 0.04em;
         color: var(--text);
-        letter-spacing: 0.02em;
-    }
-    .row-body {
-        flex: 1 1 auto;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-3) var(--space-4);
-    }
-    /* Inline the pill/flag/read groups so they flow along the row. */
-    .cockpit-row .flags,
-    .cockpit-row .reads {
-        display: inline-flex;
-        margin: 0;
-    }
-    .cockpit-hint {
-        margin-left: auto;
+        padding-bottom: var(--space-1);
+        border-bottom: 1px solid var(--border);
     }
     /* Roomier cards in the telemetry grid — the dense diag reads want
        breathing room to stay glanceable. */
