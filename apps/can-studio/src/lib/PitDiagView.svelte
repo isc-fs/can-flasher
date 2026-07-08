@@ -1122,49 +1122,62 @@
         {/if}
 
         <div class="cockpit">
-            <!-- AMS column — states only -->
-            <section class="cockpit-col card">
-                <h3 class="card-h">AMS</h3>
-                {#if fsm !== null || pack !== null}
-                    {#if fsm !== null}
-                        <div class="badge-row">
+            <!-- AMS row — states only (cells + NTC live on the AMS tab) -->
+            <section class="cockpit-row card">
+                <div class="row-label">AMS</div>
+                <div class="row-body">
+                    {#if fsm !== null || relays !== null || pack !== null}
+                        {#if fsm !== null}
                             <span class="pill pill-{fsmStateTone(fsm.state)}">{fsm.state}</span>
-                            <span class="pill pill-{fsm.amsOk ? 'success' : 'danger'}">
-                                {fsm.amsOk ? 'AMS OK' : 'AMS fault'}
+                        {/if}
+                        <div class="flags">
+                            {#if fsm !== null}
+                                <span class="flag" class:on={fsm.tsms}>TSMS</span>
+                            {/if}
+                            {#if relays !== null}
+                                <span class="flag" class:on={relays.precharge}>Precharge</span>
+                                <span class="flag" class:on={relays.airPositive}>AIR+</span>
+                                <span class="flag" class:on={relays.airNegative}>AIR−</span>
+                            {/if}
+                            <span
+                                class="flag"
+                                class:on={relays?.amsOk ?? fsm?.amsOk ?? false}
+                            >
+                                AMS OK
                             </span>
                         </div>
-                    {/if}
-                    <div class="reads">
-                        {#if pack !== null}
-                            <span class="stat">
-                                <span>pack</span>
-                                <strong>{(pack.packVoltageMv / 1000).toFixed(1)} V</strong>
-                            </span>
-                            <span class="stat">
-                                <span>current</span>
-                                <strong>{(pack.filteredMa / 1000).toFixed(1)} A</strong>
-                            </span>
+                        <div class="reads">
+                            {#if pack !== null}
+                                <span class="stat">
+                                    <span>pack</span>
+                                    <strong>{(pack.packVoltageMv / 1000).toFixed(1)} V</strong>
+                                </span>
+                                <span class="stat">
+                                    <span>current</span>
+                                    <strong>{(pack.filteredMa / 1000).toFixed(1)} A</strong>
+                                </span>
+                            {/if}
+                            {#if fsm !== null && fsm.faultReason !== 'None'}
+                                <span class="stat bad">
+                                    <span>fault</span><strong>{fsm.faultReason}</strong>
+                                </span>
+                            {/if}
+                        </div>
+                        {#if crash !== null && !crash.clean}
+                            <span class="pill pill-danger">crash prev boot</span>
                         {/if}
-                        {#if fsm !== null && fsm.faultReason !== 'None'}
-                            <span class="stat bad">
-                                <span>fault</span><strong>{fsm.faultReason}</strong>
-                            </span>
-                        {/if}
-                    </div>
-                    {#if crash !== null && !crash.clean}
-                        <div class="banner banner-danger">Crash on previous boot.</div>
+                        <span class="muted small cockpit-hint">cells + NTC on AMS tab</span>
+                    {:else}
+                        <span class="muted small">No AMS frame yet.</span>
                     {/if}
-                    <p class="muted small">Cells + NTC temps on the AMS tab.</p>
-                {:else}
-                    <p class="muted small">No AMS frame yet.</p>
-                {/if}
+                </div>
             </section>
 
-            <!-- ECU column -->
-            <section class="cockpit-col card">
-                <h3 class="card-h">ECU</h3>
-                {#if ecuStatus !== null}
-                    <div class="badge-row">
+            <!-- ECU row -->
+            <section class="cockpit-row card">
+                <div class="row-label">ECU</div>
+                <div class="row-body">
+                    {#if ecuStatus !== null}
                         <span class="pill pill-{ecuFsmTone(ecuStatus.fsmState)}">
                             {ecuStatus.fsmState}
                         </span>
@@ -1174,31 +1187,31 @@
                         <span class="pill pill-{ecuStatus.dvMode ? 'warning' : 'info'}">
                             {ecuStatus.dvMode ? 'driverless' : 'manual'}
                         </span>
-                    </div>
-                    <div class="reads">
-                        <span class="stat"><span>torque</span><strong>{ecuStatus.torquePct}%</strong></span>
-                        {#if ecuInverter !== null}
-                            <span class="stat"><span>DC bus</span><strong>{ecuInverter.dcBusVoltage} V</strong></span>
-                            <span class="stat"><span>rpm</span><strong>{ecuInverter.invRpm}</strong></span>
+                        {#if ecuDv !== null && (ecuDv.r2dConfirm || ecuDv.dvR2dReq)}
+                            <div class="flags">
+                                <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
+                                <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
+                                <span class="flag" class:on={ecuDv.brakeOverLimit}>EBS brake</span>
+                            </div>
                         {/if}
-                    </div>
-                    {#if ecuDv !== null && (ecuDv.r2dConfirm || ecuDv.dvR2dReq)}
-                        <div class="flags">
-                            <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
-                            <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
-                            <span class="flag" class:on={ecuDv.brakeOverLimit}>EBS brake</span>
+                        <div class="reads">
+                            <span class="stat"><span>torque</span><strong>{ecuStatus.torquePct}%</strong></span>
+                            {#if ecuInverter !== null}
+                                <span class="stat"><span>DC bus</span><strong>{ecuInverter.dcBusVoltage} V</strong></span>
+                                <span class="stat"><span>rpm</span><strong>{ecuInverter.invRpm}</strong></span>
+                            {/if}
                         </div>
+                    {:else}
+                        <span class="muted small">No ECU frame yet.</span>
                     {/if}
-                {:else}
-                    <p class="muted small">No ECU frame yet.</p>
-                {/if}
+                </div>
             </section>
 
-            <!-- uDV column -->
-            <section class="cockpit-col card">
-                <h3 class="card-h">uDV</h3>
-                {#if udvStatus !== null}
-                    <div class="badge-row">
+            <!-- uDV row -->
+            <section class="cockpit-row card">
+                <div class="row-label">uDV</div>
+                <div class="row-body">
+                    {#if udvStatus !== null}
                         <span
                             class="pill pill-{udvStatus.asState === 'Emergency'
                                 ? 'danger'
@@ -1209,25 +1222,25 @@
                             {udvStatus.asState}
                         </span>
                         <span class="pill pill-info">assi: {udvStatus.assi}</span>
-                    </div>
-                    <div class="flags">
-                        <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
-                        <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
-                        <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
-                        <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
-                    </div>
-                    <div class="reads">
-                        <span class="stat">
-                            <span>mission</span>
-                            <strong>{udvStatus.missionId < 0 ? 'none' : missionName(udvStatus.missionId)}</strong>
-                        </span>
-                        {#if udvRes !== null}
-                            <span class="stat"><span>RES</span><strong>{udvRes.resStatus}</strong></span>
-                        {/if}
-                    </div>
-                {:else}
-                    <p class="muted small">No uDV frame yet.</p>
-                {/if}
+                        <div class="flags">
+                            <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
+                            <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
+                        </div>
+                        <div class="reads">
+                            <span class="stat">
+                                <span>mission</span>
+                                <strong>{udvStatus.missionId < 0 ? 'none' : missionName(udvStatus.missionId)}</strong>
+                            </span>
+                            {#if udvRes !== null}
+                                <span class="stat"><span>RES</span><strong>{udvRes.resStatus}</strong></span>
+                            {/if}
+                        </div>
+                    {:else}
+                        <span class="muted small">No uDV frame yet.</span>
+                    {/if}
+                </div>
             </section>
         </div>
     {:else if profile === 'udv'}
@@ -2655,18 +2668,42 @@
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: var(--space-4);
     }
-    /* Cockpit — the three boards side by side, one column each. */
+    /* Cockpit — the three boards stacked as wide horizontal rows, each a
+       label + a single horizontal line of pills / flags / reads. */
     .cockpit {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: var(--space-4);
-        align-items: start;
-    }
-    .cockpit-col {
-        padding: var(--space-4);
         display: flex;
         flex-direction: column;
         gap: var(--space-3);
+    }
+    .cockpit-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-4);
+    }
+    .row-label {
+        flex: 0 0 auto;
+        min-width: 56px;
+        font-weight: 600;
+        font-size: var(--text-lg, 1.1rem);
+        color: var(--text);
+        letter-spacing: 0.02em;
+    }
+    .row-body {
+        flex: 1 1 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-3) var(--space-4);
+    }
+    /* Inline the pill/flag/read groups so they flow along the row. */
+    .cockpit-row .flags,
+    .cockpit-row .reads {
+        display: inline-flex;
+        margin: 0;
+    }
+    .cockpit-hint {
+        margin-left: auto;
     }
     /* Roomier cards in the telemetry grid — the dense diag reads want
        breathing room to stay glanceable. */
