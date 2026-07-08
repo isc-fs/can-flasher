@@ -64,11 +64,12 @@
     // render a placeholder until the firmware team defines a pit-diag
     // stream + its frames in IFS08-DBCinator.
     const PROFILES: { id: PitDiagProfile; label: string }[] = [
+        { id: 'all', label: 'All' },
         { id: 'ams', label: 'AMS' },
         { id: 'ecu', label: 'ECU' },
         { id: 'udv', label: 'uDV' },
     ];
-    let profile = $state<PitDiagProfile>('ams');
+    let profile = $state<PitDiagProfile>('all');
 
     type ArmState =
         | { kind: 'idle' }
@@ -988,7 +989,13 @@
     <header>
         <div>
             <h2>Telemetry</h2>
-            {#if profile === 'ams'}
+            {#if profile === 'all'}
+                <p class="muted">
+                    Cockpit — arms all three boards at once and reads them
+                    side by side. AMS shows its states (cell voltages + NTC
+                    temperatures live on the AMS tab); ECU and uDV in full.
+                </p>
+            {:else if profile === 'ams'}
                 <p class="muted">
                     AMS observer mode. Arming emits <code>0x7F0#DEADBEEF</code>;
                     the AMS replies on <code>0x7F1</code> and starts streaming
@@ -1070,7 +1077,160 @@
         </div>
     {/if}
 
-    {#if profile === 'udv'}
+    {#if profile === 'all'}
+        <!-- Cockpit — arms AMS+ECU+uDV at once (best-effort, no ACK) and
+             reads them side by side. AMS shows states only (grids on its
+             own tab); ECU/uDV in full. -->
+        <div class="toolbar card card-tight">
+            {#if armState.kind === 'idle' || armState.kind === 'error'}
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    disabled={!adapterReady}
+                    onclick={confirmArm}
+                >
+                    Enable all telemetry
+                </button>
+            {:else if armState.kind === 'confirming'}
+                <div class="confirm">
+                    <span class="confirm-text">Arm all three telemetry streams?</span>
+                    <button type="button" class="btn btn-primary" onclick={arm}>
+                        Yes, arm
+                    </button>
+                    <button type="button" class="btn" onclick={cancelArm}>Cancel</button>
+                </div>
+            {:else if armState.kind === 'arming'}
+                <button type="button" class="btn" disabled>Arming…</button>
+            {:else if armState.kind === 'armed'}
+                <button type="button" class="btn btn-danger" onclick={disarm}>
+                    Disable
+                </button>
+                <span class="stat">
+                    <strong class="status-dot armed">●</strong><span>armed</span>
+                </span>
+                <span class="stat">
+                    <span>frames / scan</span><strong>{lastScanFrames}</strong>
+                </span>
+            {/if}
+        </div>
+
+        {#if armState.kind === 'error'}
+            <div class="banner banner-danger">
+                <strong>Arm failed:</strong>
+                {armState.message}
+            </div>
+        {/if}
+
+        <div class="cockpit">
+            <!-- AMS column — states only -->
+            <section class="cockpit-col card">
+                <h3 class="card-h">AMS</h3>
+                {#if fsm !== null || pack !== null}
+                    {#if fsm !== null}
+                        <div class="badge-row">
+                            <span class="pill pill-{fsmStateTone(fsm.state)}">{fsm.state}</span>
+                            <span class="pill pill-{fsm.amsOk ? 'success' : 'danger'}">
+                                {fsm.amsOk ? 'AMS OK' : 'AMS fault'}
+                            </span>
+                        </div>
+                    {/if}
+                    <div class="reads">
+                        {#if pack !== null}
+                            <span class="stat">
+                                <span>pack</span>
+                                <strong>{(pack.packVoltageMv / 1000).toFixed(1)} V</strong>
+                            </span>
+                            <span class="stat">
+                                <span>current</span>
+                                <strong>{(pack.filteredMa / 1000).toFixed(1)} A</strong>
+                            </span>
+                        {/if}
+                        {#if fsm !== null && fsm.faultReason !== 'None'}
+                            <span class="stat bad">
+                                <span>fault</span><strong>{fsm.faultReason}</strong>
+                            </span>
+                        {/if}
+                    </div>
+                    {#if crash !== null && !crash.clean}
+                        <div class="banner banner-danger">Crash on previous boot.</div>
+                    {/if}
+                    <p class="muted small">Cells + NTC temps on the AMS tab.</p>
+                {:else}
+                    <p class="muted small">No AMS frame yet.</p>
+                {/if}
+            </section>
+
+            <!-- ECU column -->
+            <section class="cockpit-col card">
+                <h3 class="card-h">ECU</h3>
+                {#if ecuStatus !== null}
+                    <div class="badge-row">
+                        <span class="pill pill-{ecuFsmTone(ecuStatus.fsmState)}">
+                            {ecuStatus.fsmState}
+                        </span>
+                        <span class="pill pill-{ecuInvTone(ecuStatus.invState)}">
+                            inv: {ecuStatus.invState}
+                        </span>
+                        <span class="pill pill-{ecuStatus.dvMode ? 'warning' : 'info'}">
+                            {ecuStatus.dvMode ? 'driverless' : 'manual'}
+                        </span>
+                    </div>
+                    <div class="reads">
+                        <span class="stat"><span>torque</span><strong>{ecuStatus.torquePct}%</strong></span>
+                        {#if ecuInverter !== null}
+                            <span class="stat"><span>DC bus</span><strong>{ecuInverter.dcBusVoltage} V</strong></span>
+                            <span class="stat"><span>rpm</span><strong>{ecuInverter.invRpm}</strong></span>
+                        {/if}
+                    </div>
+                    {#if ecuDv !== null && (ecuDv.r2dConfirm || ecuDv.dvR2dReq)}
+                        <div class="flags">
+                            <span class="flag" class:on={ecuDv.dvR2dReq}>R2D req</span>
+                            <span class="flag" class:on={ecuDv.r2dConfirm}>R2D ✓</span>
+                            <span class="flag" class:on={ecuDv.brakeOverLimit}>EBS brake</span>
+                        </div>
+                    {/if}
+                {:else}
+                    <p class="muted small">No ECU frame yet.</p>
+                {/if}
+            </section>
+
+            <!-- uDV column -->
+            <section class="cockpit-col card">
+                <h3 class="card-h">uDV</h3>
+                {#if udvStatus !== null}
+                    <div class="badge-row">
+                        <span
+                            class="pill pill-{udvStatus.asState === 'Emergency'
+                                ? 'danger'
+                                : udvStatus.asState === 'Driving'
+                                  ? 'success'
+                                  : 'info'}"
+                        >
+                            {udvStatus.asState}
+                        </span>
+                        <span class="pill pill-info">assi: {udvStatus.assi}</span>
+                    </div>
+                    <div class="flags">
+                        <span class="flag" class:on={bit(udvStatus.signals, 1)}>TS</span>
+                        <span class="flag" class:on={bit(udvStatus.signals, 3)}>EBS</span>
+                        <span class="flag" class:on={bit(udvStatus.signals, 7)}>R2D</span>
+                        <span class="flag" class:on={bit(udvStatus.signals, 8)}>Standstill</span>
+                    </div>
+                    <div class="reads">
+                        <span class="stat">
+                            <span>mission</span>
+                            <strong>{udvStatus.missionId < 0 ? 'none' : missionName(udvStatus.missionId)}</strong>
+                        </span>
+                        {#if udvRes !== null}
+                            <span class="stat"><span>RES</span><strong>{udvRes.resStatus}</strong></span>
+                        {/if}
+                    </div>
+                {:else}
+                    <p class="muted small">No uDV frame yet.</p>
+                {/if}
+            </section>
+        </div>
+    {:else if profile === 'udv'}
         <!-- uDV controls. Arm is sticky/fire-and-forget (0x7DE); no ACK,
              no disarm frame — Disable just tears down the reader. -->
         <div class="toolbar card card-tight">
@@ -2494,6 +2654,19 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: var(--space-4);
+    }
+    /* Cockpit — the three boards side by side, one column each. */
+    .cockpit {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--space-4);
+        align-items: start;
+    }
+    .cockpit-col {
+        padding: var(--space-4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
     }
     /* Roomier cards in the telemetry grid — the dense diag reads want
        breathing room to stay glanceable. */
