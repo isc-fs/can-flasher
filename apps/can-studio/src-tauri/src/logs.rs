@@ -10,6 +10,7 @@
 //! CAN speeds, a minutes-long transfer.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,15 @@ use crate::flash::parse_interface;
 
 /// Progress events for an in-flight `logs_pull`.
 pub const EVENT_NAME: &str = "logs://progress";
+
+/// Marker the frontend matches to render a cancel as a neutral outcome
+/// rather than a failure.
+pub const CANCELLED_MSG: &str = "cancelled by operator";
+
+/// Set by [`logs_cancel`], polled between reads by [`logs_pull`]. A pull
+/// can run 3-7 minutes at classic-CAN speeds, so aborting has to be
+/// possible without tearing down the app.
+static CANCEL_PULL: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -166,6 +176,7 @@ pub async fn logs_pull(
     index: u16,
     dest_dir: String,
 ) -> Result<PullResult, String> {
+    CANCEL_PULL.store(false, Ordering::Relaxed);
     let session = open_session(&request)?;
     session
         .connect()
@@ -223,6 +234,13 @@ async fn pull_inner(
         if out.data.is_empty() {
             return Err(format!("LOGFS_READ stalled at offset {offset} before EOF"));
         }
+        // Poll between reads — each is one bounded ISO-TP round trip, so
+        // a cancel lands within a few hundred ms. Close the handle so the
+        // node doesn't leak it.
+        if CANCEL_PULL.load(Ordering::Relaxed) {
+            let _ = ack_body(session, cmd_logfs_close(open.handle), "LOGFS_CLOSE").await;
+            return Err(CANCELLED_MSG.to_string());
+        }
     }
 
     if open.size > 0 && data.len() as u32 != open.size {
@@ -279,4 +297,11 @@ fn unique_path(dir: &std::path::Path, name: &str) -> PathBuf {
         }
     }
     base
+}
+
+/// Ask an in-flight [`logs_pull`] to stop. Cooperative: the transfer
+/// aborts at the next read boundary and the file is not written.
+#[tauri::command]
+pub fn logs_cancel() {
+    CANCEL_PULL.store(true, Ordering::Relaxed);
 }
